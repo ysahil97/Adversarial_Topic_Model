@@ -1,3 +1,6 @@
+import gensim.corpora as corpora
+from gensim.test.utils import common_corpus, common_dictionary
+from gensim.models.coherencemodel import CoherenceModel
 import numpy as np
 import torch
 import torch.autograd as autograd
@@ -38,7 +41,28 @@ vocab_file = "/home/ysahil/Academics/Sem_8/ATM_GANs/20newsgroups_sakshi/data_20n
 alpha = [0.1]*20
 alpha[0] = 18.1
 vocab_text = util.create_vocab(vocab_file)
-
+topics_20ng = [
+    ['alternative','atheism'],
+    ['computer', 'graphics'],
+    ['computer','os','ms','windows'],
+    ['computer','sys','ibm','pc','hardware'],
+    ['computer','sys','mac','hardware'],
+    ['computer','windows'],
+    ['misc','sale'],
+    ['rec','auto'],
+    ['rec','motorcycle'],
+    ['rec','sport','baseball'],
+    ['rec','sport','hockey'],
+    ['science','crypto'],
+    ['science','electronics'],
+    ['science','medical'],
+    ['science','space'],
+    ['society','religion','christian'],
+    ['talk','politics','guns'],
+    ['talk','politics','middle','east'],
+    ['talk','politics','misc'],
+    ['talk','religion','misc']
+]
 #Create the TF-IDF matrix
 def get_tfidf():
     # vocab = util.create_vocab(dataset_path_1)
@@ -132,7 +156,7 @@ def calc_gradient_penalty(netD, real_data, fake_data):
                               create_graph=True, retain_graph=True, only_inputs=True)[0]
 
     gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * LAMBDA
-    return gradient_penalty
+    return gradient_penalty.mean()
 
 
 ATM_G = generator()
@@ -151,9 +175,11 @@ criterion = nn.BCELoss()
 optimizerD = optim.Adam(ATM_D.parameters(), lr=A_1, betas=(B_1, B_2))
 optimizerG = optim.Adam(ATM_G.parameters(), lr=A_1, betas=(B_1, B_2))
 
-one = torch.FloatTensor([1]*BATCH_SIZE)
+# one = torch.FloatTensor([1]*BATCH_SIZE)
+one = torch.FloatTensor([1])
 # mone = one * -1
-mone = torch.FloatTensor([0]*BATCH_SIZE)
+# mone = torch.FloatTensor([0])
+mone = torch.FloatTensor([0])
 if use_cuda:
     one = one.cuda()
     mone = mone.cuda()
@@ -205,12 +231,11 @@ for iteration in range(ITERS):
         #print(sampled_real_data_v.size())
         # train with gradient penalty
         gradient_penalty = calc_gradient_penalty(ATM_D, sampled_real_data_v.data, fake.data)
-        gradient_penalty.backward()
+        # gradient_penalty.backward()
 
-        D_cost = D_fake - D_real + gradient_penalty
-        # print(D_cost)
-        D_real.backward(D_fake + gradient_penalty)
-        Wasserstein_D = D_fake - D_real
+        D_cost = D_fake.mean() - D_real.mean() + gradient_penalty
+        D_cost.backward()
+        Wasserstein_D = D_fake.mean() - D_real.mean()
         optimizerD.step()
 
 #         dre, dfe = extract(D_real_error)[0], extract(D_fake_error)[0]
@@ -229,12 +254,12 @@ for iteration in range(ITERS):
     fake = ATM_G(sampled_data_v)
     G = ATM_D(fake)
     # G = G.mean()
-    G.backward(mone)
+    # G.backward(mone)
 #     G_error = criterion(G,autograd.Variable(mone))
 #     G_error.backward()
 #     ge = extract(G_error)[0]
-    G_cost = -G
-    # G_cost.backward(torch.zeros([1,BATCH_SIZE]),retain_graph=True)
+    G_cost = -(G.mean())
+    G_cost.backward()
     optimizerG.step()
     lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '/' + 'disc cost', D_cost.cpu().data.numpy())
     lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '/' + 'wasserstein distance', Wasserstein_D.cpu().data.numpy())
@@ -243,18 +268,42 @@ for iteration in range(ITERS):
     if iteration % 100 == 99:
         print("Epoch %s\n" % iteration)
         lib_plot.flush()
-        # generate_image(_data)
     lib_plot.tick()
     if iteration % 500 == 99:
         doc_name = "/home/ysahil/Academics/Sem_8/ATM_GANs/doc_gen/gen_doc_"+str(iteration)+".txt"
         print(fake.size())
+        fake_np = fake.tolist()
+        print(type(fake_np))
+        # exit()
+        # t_list = list(enumerate(list(fake_np)))
+        # t_list.sort(key = lambda x: x[1])
+        # t_list.reverse()
+        text_data = util.tfidf2doc(fake_np,vocab_text)
+        # print(text_data)
+        # exit()
+        id2word = corpora.Dictionary(text_data)
+        corpus_newsgroups = [id2word.doc2bow(text) for text in text_data]
+        cm_umass = CoherenceModel(topics=topics_20ng, corpus=corpus_newsgroups, dictionary=id2word, texts=text_data, coherence='u_mass')
+        coherence_umass = cm_umass.get_coherence()  # get coherence value
+        cm_cv = CoherenceModel(topics=topics_20ng, corpus=corpus_newsgroups, dictionary=id2word, texts=text_data, coherence='c_v')
+        coherence_cv = cm_cv.get_coherence()  # get coherence value
+        cm_cuci = CoherenceModel(topics=topics_20ng, corpus=corpus_newsgroups, dictionary=id2word, texts=text_data, coherence='c_uci')
+        coherence_cuci = cm_cuci.get_coherence()  # get coherence value
+        cm_npmi = CoherenceModel(topics=topics_20ng, corpus=corpus_newsgroups, dictionary=id2word, texts=text_data, coherence='c_npmi')
+        coherence_npmi = cm_npmi.get_coherence()  # get coherence value
+        print("Coherence(U_mass): "+str(coherence_umass)+"\n")
+        print("Coherence(C_v):    "+str(coherence_cv)+"\n")
+        print("Coherence(C_uci):  "+str(coherence_cuci)+"\n")
+        print("Coherence(C_npmi): "+str(coherence_npmi)+"\n")
+        # exit()
         with open(doc_name, 'w') as myfile:
-            fake_np = fake.tolist()
+            t_list = list(enumerate(list(fake_np[0])))
+            t_list.sort(key = lambda x: x[1])
+            t_list.reverse()
             # print(fake_np)
             doc_content = ""
-            for i in range(len(fake_np)):
-                if fake_np[0][i] >  0.0005:
-                    doc_content += vocab_text[i] + ' '
+            # for i in range(len(t_list)):
+            for i in range(100):
+                # if t_list[i][1] >  0.0005:
+                    doc_content += vocab_text[t_list[i][0]] + ' '
             myfile.write(doc_content)
-
-

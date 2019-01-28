@@ -129,3 +129,17 @@ def sample_document(tfidf_mat):
     result = tfidf_mat.getcol(sampled_document).toarray().T
     return result
 
+def tfidf2doc(tfidf_vecs,vocab):
+    # tfidf_docs_list = list(tfidf_vecs)
+    docs = []
+    # print(tfidf_vecs)
+    for i in tfidf_vecs:
+        t_list = list(enumerate(i))
+        t_list.sort(key = lambda x: x[1])
+        t_list.reverse()
+        doc = []
+        # print(i)
+        for j in range(1000):
+            doc.append(vocab[t_list[j][0]])
+        docs.append(doc)
+    return docs
