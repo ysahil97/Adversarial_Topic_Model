@@ -41,6 +41,7 @@ vocab_file = "/home/ysahil/Academics/Sem_8/ATM_GANs/20newsgroups_sakshi/data_20n
 alpha = [0.1]*20
 alpha[0] = 18.1
 vocab_text = util.create_vocab(vocab_file)
+# Topic list for Gensim Topic Coherence Pipeline
 topics_20ng = [
     ['alternative','atheism'],
     ['computer', 'graphics'],
@@ -73,9 +74,13 @@ def representation_map(result):
     sam_doc = util.sample_document(result)
     return sam_doc
 
-
+# Create normalized tfidf matrix (one time)
 test_result = get_tfidf()
 
+
+'''
+Generator and Discriminator description of ATM-GAN's
+'''
 class generator(nn.Module):
     def __init__(self):
         super(generator,self).__init__()
@@ -106,6 +111,9 @@ class discriminator(nn.Module):
         output = self.main(inputs)
         return output.view(-1)
 
+'''
+Function to initialize one's weights
+'''
 def weights_init(m):
     classname = m.__class__.__name__
     if classname.find('Linear') != -1:
@@ -115,6 +123,10 @@ def weights_init(m):
         m.weight.data.normal_(1.0, 0.02)
         m.bias.data.fill_(0)
 
+
+'''
+Iterators for fake data used in Generator
+'''
 def inf_data_gen(alpha):
     if DATASET == "20newsgroups":
         while True:
@@ -126,6 +138,9 @@ def inf_data_gen(alpha):
             np.random.shuffle(dataset)
             yield dataset
 
+'''
+Iterators for real data sampled from corpus
+'''
 def real_data_sampler(test_result):
     while True:
         dataset = []
@@ -171,14 +186,10 @@ if use_cuda:
     ATM_D = ATM_D.cuda()
     ATM_G = ATM_G.cuda()
 
-criterion = nn.BCELoss()
 optimizerD = optim.Adam(ATM_D.parameters(), lr=A_1, betas=(B_1, B_2))
 optimizerG = optim.Adam(ATM_G.parameters(), lr=A_1, betas=(B_1, B_2))
 
-# one = torch.FloatTensor([1]*BATCH_SIZE)
 one = torch.FloatTensor([1])
-# mone = one * -1
-# mone = torch.FloatTensor([0])
 mone = torch.FloatTensor([0])
 if use_cuda:
     one = one.cuda()
@@ -187,7 +198,6 @@ if use_cuda:
 data = inf_data_gen(alpha)
 real_data = real_data_sampler(test_result)
 
-print(alpha)
 for iteration in range(ITERS):
     ############################
     # (1) Update D network
@@ -195,27 +205,18 @@ for iteration in range(ITERS):
     for p in ATM_D.parameters():  # reset requires_grad
         p.requires_grad = True  # they are set to False below in netG update
 
+    # Flush out the gradients present in discriminator and generator
     optimizerD.zero_grad()
     optimizerG.zero_grad()
     for iter_d in range(CRITIC_ITERS):
-        #_data = data.next()
-        # optimizerD.zero_grad()
         _data = next(data)
         sampled_data = torch.Tensor(_data)
         if use_cuda:
             sampled_data = sampled_data.cuda()
         sampled_data_v = autograd.Variable(sampled_data)
 
-        #print(sampled_data_v.size())
-         # train with sampled(fake data)
         fake = autograd.Variable(ATM_G(sampled_data_v).data)
         D_fake = ATM_D(fake)
-        # D_fake = D_fake.mean()
-        # D_fake.backward(one)
-#         D_fake_error = criterion(D_fake,autograd.Variable(one))
-#         D_fake_error.backward()
-
-        #_realdata = real_data.next()
         _realdata = next(real_data)
         sampled_real_data = torch.Tensor(_realdata)
         if use_cuda:
@@ -223,28 +224,18 @@ for iteration in range(ITERS):
         sampled_real_data_v = autograd.Variable(sampled_real_data)
 
         D_real = ATM_D(sampled_real_data_v)
-        # D_real = D_real.mean()
-        # D_real.backward(mone)
-#         D_real_error = criterion(D_real,autograd.Variable(mone))
-#         D_real_error.backward()
 
-        #print(sampled_real_data_v.size())
-        # train with gradient penalty
         gradient_penalty = calc_gradient_penalty(ATM_D, sampled_real_data_v.data, fake.data)
-        # gradient_penalty.backward()
 
         D_cost = D_fake.mean() - D_real.mean() + gradient_penalty
         D_cost.backward()
         Wasserstein_D = D_fake.mean() - D_real.mean()
         optimizerD.step()
 
-#         dre, dfe = extract(D_real_error)[0], extract(D_fake_error)[0]
-    # optimizerG.zero_grad()
     for p in ATM_D.parameters():
         p.requires_grad = False  # to avoid computation
     ATM_G.zero_grad()
 
-    #_data = data.next()
     _data = next(data)
     sampled_data = torch.Tensor(_data)
     if use_cuda:
@@ -253,34 +244,28 @@ for iteration in range(ITERS):
 
     fake = ATM_G(sampled_data_v)
     G = ATM_D(fake)
-    # G = G.mean()
-    # G.backward(mone)
-#     G_error = criterion(G,autograd.Variable(mone))
-#     G_error.backward()
-#     ge = extract(G_error)[0]
     G_cost = -(G.mean())
     G_cost.backward()
     optimizerG.step()
     lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '/' + 'disc cost', D_cost.cpu().data.numpy())
     lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '/' + 'wasserstein distance', Wasserstein_D.cpu().data.numpy())
-    # if not FIXED_GENERATOR:
     lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '/' + 'gen cost', G_cost.cpu().data.numpy())
     if iteration % 100 == 99:
         print("Epoch %s\n" % iteration)
         lib_plot.flush()
     lib_plot.tick()
+
     if iteration % 500 == 99:
+        '''
+        Applying Gensim Topic Coherence Pipeline
+        on the batch of documents, each having 1000 words
+        ranked by their normalized tfidf values
+        '''
         doc_name = "/home/ysahil/Academics/Sem_8/ATM_GANs/doc_gen/gen_doc_"+str(iteration)+".txt"
         print(fake.size())
         fake_np = fake.tolist()
         print(type(fake_np))
-        # exit()
-        # t_list = list(enumerate(list(fake_np)))
-        # t_list.sort(key = lambda x: x[1])
-        # t_list.reverse()
         text_data = util.tfidf2doc(fake_np,vocab_text)
-        # print(text_data)
-        # exit()
         id2word = corpora.Dictionary(text_data)
         corpus_newsgroups = [id2word.doc2bow(text) for text in text_data]
         cm_umass = CoherenceModel(topics=topics_20ng, corpus=corpus_newsgroups, dictionary=id2word, texts=text_data, coherence='u_mass')
@@ -295,15 +280,15 @@ for iteration in range(ITERS):
         print("Coherence(C_v):    "+str(coherence_cv)+"\n")
         print("Coherence(C_uci):  "+str(coherence_cuci)+"\n")
         print("Coherence(C_npmi): "+str(coherence_npmi)+"\n")
-        # exit()
+        '''
+        Document generation of a sample using top 100 words
+        ranked by their normalized tf-idf values
+        '''
         with open(doc_name, 'w') as myfile:
             t_list = list(enumerate(list(fake_np[0])))
             t_list.sort(key = lambda x: x[1])
             t_list.reverse()
-            # print(fake_np)
             doc_content = ""
-            # for i in range(len(t_list)):
             for i in range(100):
-                # if t_list[i][1] >  0.0005:
                     doc_content += vocab_text[t_list[i][0]] + ' '
             myfile.write(doc_content)
