@@ -12,7 +12,7 @@ import lib_plot
 
 
 torch.manual_seed(1)
-use_cuda = False
+use_cuda = True
 
 
 '''
@@ -22,7 +22,7 @@ DATASET = "20newsgroups" # For now, we just test it on 20newsgroups dataset
 NUM_TOPICS = 20
 LAMBDA = 10 # Gradient penalty lambda hyperparameter
 CRITIC_ITERS = 10 # For WGAN and WGAN-GP, number of critic iters per gen iter
-ITERS = 200000 # How many generator iterations to train for
+ITERS = 40600 # How many generator iterations to train for
 VOCAB_SIZE = 2000# Vocab length of the generator
 GENERATOR_PARAM = 100 # Number of neurons in the middle layer of the generator
 LEAK_FACTOR = 0.2 # leak parameter used in generator
@@ -36,6 +36,7 @@ dataset_path = "/home/ysahil/Academics/Sem_8/ATM_GANs/20news/20news-18828/all_do
 dataset_path_1 = "/home/ysahil/Academics/Sem_8/ATM_GANs/20news/20news-18828"
 train_dataset = "/home/ysahil/Academics/Sem_8/ATM_GANs/20newsgroups_sakshi/data_20news/data/20news/train.feat"
 vocab_file = "/home/ysahil/Academics/Sem_8/ATM_GANs/20newsgroups_sakshi/data_20news/data/20news/vocab.new"
+MODEL_PATH = "/home/ysahil/Academics/Sem_8/ATM_GANs/models/"
 
 # alpha = [np.random.randint(1,11) for i in range(0,20)]
 alpha = [0.1]*20
@@ -276,10 +277,10 @@ for iteration in range(ITERS):
         coherence_cuci = cm_cuci.get_coherence()  # get coherence value
         cm_npmi = CoherenceModel(topics=topics_20ng, corpus=corpus_newsgroups, dictionary=id2word, texts=text_data, coherence='c_npmi')
         coherence_npmi = cm_npmi.get_coherence()  # get coherence value
-        print("Coherence(U_mass): "+str(coherence_umass)+"\n")
-        print("Coherence(C_v):    "+str(coherence_cv)+"\n")
-        print("Coherence(C_uci):  "+str(coherence_cuci)+"\n")
-        print("Coherence(C_npmi): "+str(coherence_npmi)+"\n")
+        print("Coherence(U_mass): "+str(coherence_umass))
+        print("Coherence(C_v):    "+str(coherence_cv))
+        print("Coherence(C_uci):  "+str(coherence_cuci))
+        print("Coherence(C_npmi): "+str(coherence_npmi))
         '''
         Document generation of a sample using top 100 words
         ranked by their normalized tf-idf values
@@ -292,3 +293,7 @@ for iteration in range(ITERS):
             for i in range(100):
                     doc_content += vocab_text[t_list[i][0]] + ' '
             myfile.write(doc_content)
+
+        torch.save(ATM_G.state_dict(), MODEL_PATH+"atm_generator.pt")
+        torch.save(ATM_D.state_dict(), MODEL_PATH+"atm_discriminator.pt")
+
