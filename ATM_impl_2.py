@@ -10,7 +10,6 @@ import torch.optim as optim
 import utility as util
 import lib_plot
 
-
 torch.manual_seed(1)
 use_cuda = True
 
@@ -20,6 +19,7 @@ Important model parameters
 '''
 DATASET = "20newsgroups" # For now, we just test it on 20newsgroups dataset
 NUM_TOPICS = 20
+NUM_NOISE = 3
 LAMBDA = 10 # Gradient penalty lambda hyperparameter
 CRITIC_ITERS = 10 # For WGAN and WGAN-GP, number of critic iters per gen iter
 ITERS = 40600 # How many generator iterations to train for
@@ -36,7 +36,7 @@ dataset_path = "/home/ysahil/Academics/Sem_8/ATM_GANs/20news/20news-18828/all_do
 dataset_path_1 = "/home/ysahil/Academics/Sem_8/ATM_GANs/20news/20news-18828"
 train_dataset = "/home/ysahil/Academics/Sem_8/ATM_GANs/20newsgroups_sakshi/data_20news/data/20news/train.feat"
 vocab_file = "/home/ysahil/Academics/Sem_8/ATM_GANs/20newsgroups_sakshi/data_20news/data/20news/vocab.new"
-MODEL_PATH = "/home/ysahil/Academics/Sem_8/ATM_GANs/models/"
+MODEL_PATH = "/home/ysahil/Academics/Sem_8/ATM_GANs/models/model_2/"
 
 # alpha = [np.random.randint(1,11) for i in range(0,20)]
 alpha = [0.1]*20
@@ -44,27 +44,13 @@ alpha[0] = 18.1
 vocab_text = util.create_vocab(vocab_file)
 # Topic list for Gensim Topic Coherence Pipeline
 topics_20ng = [
-    ['alternative','atheism'],
-    ['computer', 'graphics'],
-    ['computer','os','ms','windows'],
-    ['computer','sys','ibm','pc','hardware'],
-    ['computer','sys','mac','hardware'],
-    ['computer','windows'],
-    ['misc','sale'],
-    ['rec','auto'],
-    ['rec','motorcycle'],
-    ['rec','sport','baseball'],
-    ['rec','sport','hockey'],
-    ['science','crypto'],
-    ['science','electronics'],
-    ['science','medical'],
-    ['science','space'],
-    ['society','religion','christian'],
-    ['talk','politics','guns'],
-    ['talk','politics','middle','east'],
-    ['talk','politics','misc'],
-    ['talk','religion','misc']
+    ['alternative','atheism','religion','god','bible','christian','graphics'],
+    ['computer','windows','os','ms','hardware','file','ibm','machine'],
+    ['science','crypto','electronics','medical','electronics','medicine','space'],
+    ['society','religion','christian','talk','politics','guns','middle','east'],
+    # ['car','auto','drivers','bikes','motors','wheels'],
 ]
+
 #Create the TF-IDF matrix
 def get_tfidf():
     # vocab = util.create_vocab(dataset_path_1)
@@ -92,6 +78,22 @@ class generator(nn.Module):
                nn.Linear(GENERATOR_PARAM,VOCAB_SIZE),
                nn.Softmax()
                )
+        self.main = main
+
+    def forward(self,noise):
+        output = self.main(noise)
+        return output
+
+class alpha_generator(nn.Module):
+    def __init__(self):
+        super(alpha_generator,self).__init__()
+        main = nn.Sequential(
+               nn.Linear(NUM_NOISE,10),
+               nn.LeakyReLU(LEAK_FACTOR,True),
+               nn.BatchNorm1d(10),
+               nn.Linear(10,5),
+               nn.Softmax()
+        )
         self.main = main
 
     def forward(self,noise):
@@ -128,12 +130,27 @@ def weights_init(m):
 '''
 Iterators for fake data used in Generator
 '''
-def inf_data_gen(alpha):
+def inf_alpha_gen():
     if DATASET == "20newsgroups":
         while True:
             dataset = []
             for i in range(BATCH_SIZE):
-                sample = np.random.dirichlet(alpha)
+                sample = np.random.normal(loc = 0.5,size=NUM_NOISE)
+                dataset.append(sample)
+            dataset = np.array(dataset, dtype='float32')
+            np.random.shuffle(dataset)
+            yield dataset
+
+
+'''
+Iterators for fake data used in Generator
+'''
+def inf_data_gen():
+    if DATASET == "20newsgroups":
+        while True:
+            dataset = []
+            for i in range(BATCH_SIZE):
+                sample = np.random.normal(loc = 0.5,size=NUM_TOPICS)
                 dataset.append(sample)
             dataset = np.array(dataset, dtype='float32')
             np.random.shuffle(dataset)
@@ -174,21 +191,54 @@ def calc_gradient_penalty(netD, real_data, fake_data):
     gradient_penalty = ((gradients.norm(2, dim=1) - 1) ** 2).mean() * LAMBDA
     return gradient_penalty.mean()
 
+def combine_alphas_generators(fakes,alphas):
+    '''
+    fake_tensors = []
+    for i in fakes:
+        fake_tensors.append(i.data)
+    stacked_tensor = torch.stack(fake_tensors)
+    alpha_tensor = alphas.data
+    result_tensor = torch.einsum('abc,ba->bc',stacked_tensor,alpha_tensor)
+    '''
+    # TEMP: Testing alternative approach for linear combination rn
+    # Thereby keeping both approaches intact for now
+    alpha_slice = []
+    alpha_tensor = alphas.data
+    alpha_tensor.requires_grad = True
+    result_tensor = torch.zeros(BATCH_SIZE,VOCAB_SIZE,requires_grad=True)
+    if use_cuda:
+        result_tensor = result_tensor.cuda()
+    for i in range(len(fakes)):
+        x = alpha_tensor[:,i]
+        x.unsqueeze_(-1)
+        x = x.expand(BATCH_SIZE,VOCAB_SIZE)
+        result_tensor += x*fakes[i]
+    return autograd.Variable(result_tensor,requires_grad=True)
 
-ATM_G = generator()
+
+generators = []
+for i in range(4):
+    x = generator()
+    x.apply(weights_init)
+    generators.append(x)
+
 ATM_D = discriminator()
-ATM_G.apply(weights_init)
+alpha_g = alpha_generator()
 ATM_D.apply(weights_init)
-print(ATM_G)
-print(ATM_D)
-
+alpha_g.apply(weights_init)
 
 if use_cuda:
     ATM_D = ATM_D.cuda()
-    ATM_G = ATM_G.cuda()
+    alpha_g = alpha_g.cuda()
+    for g in generators:
+        g = g.cuda()
+
 
 optimizerD = optim.Adam(ATM_D.parameters(), lr=A_1, betas=(B_1, B_2))
-optimizerG = optim.Adam(ATM_G.parameters(), lr=A_1, betas=(B_1, B_2))
+optimizerGs = []
+optimizer_alpha = optim.Adam(alpha_g.parameters(), lr=A_1, betas=(B_1, B_2))
+for i in range(4):
+    optimizerGs.append(optim.Adam(generators[i].parameters(), lr=A_1, betas=(B_1, B_2)))
 
 one = torch.FloatTensor([1])
 mone = torch.FloatTensor([0])
@@ -196,8 +246,13 @@ if use_cuda:
     one = one.cuda()
     mone = mone.cuda()
 
-data = inf_data_gen(alpha)
+alpha_data = inf_alpha_gen()
+data = inf_data_gen()
 real_data = real_data_sampler(test_result)
+
+print(generators)
+print(alpha_g)
+print(ATM_D)
 
 for iteration in range(ITERS):
     ############################
@@ -208,16 +263,30 @@ for iteration in range(ITERS):
 
     # Flush out the gradients present in discriminator and generator
     optimizerD.zero_grad()
-    optimizerG.zero_grad()
+    for og in optimizerGs:
+        og.zero_grad()
+    optimizer_alpha.zero_grad()
     for iter_d in range(CRITIC_ITERS):
-        _data = next(data)
-        sampled_data = torch.Tensor(_data)
+
+        _alpha_data = next(alpha_data)
+        _data = []
+        for i in range(4):
+            data_temp = next(data)
+            sampled_data = torch.Tensor(data_temp)
+            if use_cuda:
+                sampled_data = sampled_data.cuda()
+            sampled_data_v = autograd.Variable(sampled_data)
+            _data.append(sampled_data_v)
+        sampled_alpha_data = torch.Tensor(_alpha_data)
         if use_cuda:
-            sampled_data = sampled_data.cuda()
-        sampled_data_v = autograd.Variable(sampled_data)
+            sampled_alpha_data = sampled_alpha_data.cuda()
+        sampled_alpha_data_v = autograd.Variable(sampled_alpha_data)
 
-        fake = autograd.Variable(ATM_G(sampled_data_v).data)
-
+        sampled_alphas = autograd.Variable(alpha_g(sampled_alpha_data_v).data)
+        fakes = []
+        for i in range(4):
+            fakes.append(autograd.Variable(generators[i](_data[i]).data))
+        fake = combine_alphas_generators(fakes,sampled_alphas)
         D_fake = ATM_D(fake)
         _realdata = next(real_data)
         sampled_real_data = torch.Tensor(_realdata)
@@ -235,25 +304,43 @@ for iteration in range(ITERS):
 
     for p in ATM_D.parameters():
         p.requires_grad = False  # to avoid computation
-    # ATM_G.zero_grad()
 
-    _data = next(data)
-    sampled_data = torch.Tensor(_data)
+
+    for og in generators:
+        og.zero_grad()
+    alpha_g.zero_grad()
+
+    _data = []
+    for i in range(4):
+        data_temp = next(data)
+        sampled_data = torch.Tensor(data_temp)
+        if use_cuda:
+            sampled_data = sampled_data.cuda()
+        sampled_data_v = autograd.Variable(sampled_data)
+        _data.append(sampled_data_v)
+
+    sampled_alpha_data = torch.Tensor(_alpha_data)
     if use_cuda:
-        sampled_data = sampled_data.cuda()
-    sampled_data_v = autograd.Variable(sampled_data)
+        sampled_alpha_data = sampled_alpha_data.cuda()
+    sampled_alpha_data_v = autograd.Variable(sampled_alpha_data)
 
-    fake = ATM_G(sampled_data_v)
+    sampled_alphas = autograd.Variable(alpha_g(sampled_alpha_data_v).data)
+    fakes = []
+    for i in range(4):
+        fakes.append(autograd.Variable(generators[i](_data[i]).data))
+    fake = combine_alphas_generators(fakes,sampled_alphas)
     G = ATM_D(fake)
-    # print(fake.size())
-    # print(fake.requires_grad)
-
     G_cost = -(G.mean())
     G_cost.backward()
-    optimizerG.step()
-    lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '/' + 'disc cost', D_cost.cpu().data.numpy())
-    lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '/' + 'wasserstein distance', Wasserstein_D.cpu().data.numpy())
-    lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '/' + 'gen cost', G_cost.cpu().data.numpy())
+    for og in optimizerGs:
+        og.step()
+    optimizer_alpha.step()
+    # lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '_1/' + 'disc cost', D_cost.cpu().data.numpy())
+    # lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '_1/' + 'wasserstein distance', Wasserstein_D.cpu().data.numpy())
+    # lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '_1/' + 'gen cost', G_cost.cpu().data.numpy())
+    lib_plot.plot(MODEL_PATH+'plots/disc cost',D_cost.cpu().data.numpy())
+    lib_plot.plot(MODEL_PATH+'plots/wasserstein distance',Wasserstein_D.cpu().data.numpy())
+    lib_plot.plot(MODEL_PATH+'plots/gen cost',G_cost.cpu().data.numpy())
     if iteration % 100 == 99:
         print("Epoch %s\n" % iteration)
         lib_plot.flush()
@@ -265,7 +352,8 @@ for iteration in range(ITERS):
         on the batch of documents, each having 1000 words
         ranked by their normalized tfidf values
         '''
-        doc_name = "/home/ysahil/Academics/Sem_8/ATM_GANs/doc_gen/gen_doc_"+str(iteration)+".txt"
+        # doc_name = "/home/ysahil/Academics/Sem_8/ATM_GANs/doc_gen_2_1/gen_doc_"+str(iteration)+".txt"
+        doc_name = MODEL_PATH + "generated_docs/iteration_" + str(iteration)+".txt"
         print(fake.size())
         fake_np = fake.tolist()
         print(type(fake_np))
@@ -297,6 +385,7 @@ for iteration in range(ITERS):
                     doc_content += vocab_text[t_list[i][0]] + ' '
             myfile.write(doc_content)
 
-        torch.save(ATM_G.state_dict(), MODEL_PATH+"atm_generator.pt")
+        torch.save(alpha_g.state_dict(), MODEL_PATH+"atm_alpha_generator.pt")
+        for g in range(len(generators)):
+            torch.save(generators[g].state_dict(),MODEL_PATH+"atm_generator_"+str(g)+".pt")
         torch.save(ATM_D.state_dict(), MODEL_PATH+"atm_discriminator.pt")
-
