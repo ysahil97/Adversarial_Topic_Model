@@ -91,7 +91,7 @@ class alpha_generator(nn.Module):
                nn.Linear(NUM_NOISE,10),
                nn.LeakyReLU(LEAK_FACTOR,True),
                nn.BatchNorm1d(10),
-               nn.Linear(10,5),
+               nn.Linear(10,4),
                nn.Softmax()
         )
         self.main = main

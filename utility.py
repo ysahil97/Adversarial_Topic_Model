@@ -139,7 +139,7 @@ def tfidf2doc(tfidf_vecs,vocab):
         t_list.reverse()
         doc = []
         # print(i)
-        for j in range(1000):
+        for j in range(1500):
             doc.append(vocab[t_list[j][0]])
         docs.append(doc)
     return docs
