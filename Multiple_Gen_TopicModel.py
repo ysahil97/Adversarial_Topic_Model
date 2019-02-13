@@ -215,6 +215,38 @@ def combine_alphas_generators(fakes,alphas):
         result_tensor += x*fakes[i]
     return autograd.Variable(result_tensor,requires_grad=True)
 
+def assign_topic_to_generator(fakes,topics_20ng):
+    '''
+    Assuming U_mass score for now
+    '''
+    doc_multi_name = MODEL_PATH + "results/result.log"
+    fake_data = [i.tolist() for i in fakes]
+    topic_cnt = 0
+    topic_coherence_store = [[]]*4
+    for i in topics_20ng:
+        topic = []
+        topic.append(i)
+        model_cnt = 0
+        for j in fake_data:
+            text_data = util.tfidf2doc(j,vocab_text)
+            id2word = corpora.Dictionary(text_data)
+            corpus_newsgroups = [id2word.doc2bow(text) for text in text_data]
+            cm_umass = CoherenceModel(topics=topic, corpus=corpus_newsgroups, dictionary=id2word, texts=text_data, coherence='u_mass')
+            coherence_umass = cm_umass.get_coherence()  # get coherence value
+            topic_coherence_store[model_cnt].append(tuple((coherence_umass,topic_cnt)))
+            model_cnt += 1
+        topic_cnt += 1
+
+    with open(doc_multi_name, 'w') as myfile:
+        doc_content = ""
+        for i in range(len(topic_coherence_store)):
+            topic_coherence_store[i].sort()
+            topic_number =topic_coherence_store[i][3][1]
+            doc_content += "Generator_"+str(i)+": Topic "+str(topic_number)+"\n"
+        myfile.write(doc_content)
+
+    return
+
 
 generators = []
 for i in range(4):
@@ -348,8 +380,12 @@ for iteration in range(ITERS):
 
     if iteration % 500 == 99:
         '''
+        Map the current state of each generator to the topic label learnt
+        '''
+        assign_topic_to_generator(fakes,topics_20ng)
+        '''
         Applying Gensim Topic Coherence Pipeline
-        on the batch of documents, each having 1000 words
+        on the batch of documents, each having 1500 words
         ranked by their normalized tfidf values
         '''
         # doc_name = "/home/ysahil/Academics/Sem_8/ATM_GANs/doc_gen_2_1/gen_doc_"+str(iteration)+".txt"
