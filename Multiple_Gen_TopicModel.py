@@ -222,7 +222,7 @@ def assign_topic_to_generator(fakes,topics_20ng):
     doc_multi_name = MODEL_PATH + "results/result.log"
     fake_data = [i.tolist() for i in fakes]
     topic_cnt = 0
-    topic_coherence_store = [[]]*4
+    topic_coherence_store = [list() for i in range(4)]
     for i in topics_20ng:
         topic = []
         topic.append(i)
