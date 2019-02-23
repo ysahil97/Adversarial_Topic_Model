@@ -38,7 +38,6 @@ train_dataset = "/home/sahil/deeplearning/ATM_GANs/ATM/20newsgroups_sakshi/data_
 vocab_file = "/home/sahil/deeplearning/ATM_GANs/ATM/20newsgroups_sakshi/data_20news/data/20news/vocab.new"
 MODEL_PATH = "/home/sahil/deeplearning/ATM_GANs/ATM/models/model_2/"
 
-# alpha = [np.random.randint(1,11) for i in range(0,20)]
 alpha = [0.1]*20
 alpha[0] = 18.1
 vocab_text = util.create_vocab(vocab_file)
@@ -53,7 +52,6 @@ topics_20ng = [
 
 #Create the TF-IDF matrix
 def get_tfidf():
-    # vocab = util.create_vocab(dataset_path_1)
     result = util.create_dataset(train_dataset)
     return result
 
@@ -192,14 +190,6 @@ def calc_gradient_penalty(netD, real_data, fake_data):
     return gradient_penalty.mean()
 
 def combine_alphas_generators(fakes,alphas):
-    '''
-    fake_tensors = []
-    for i in fakes:
-        fake_tensors.append(i.data)
-    stacked_tensor = torch.stack(fake_tensors)
-    alpha_tensor = alphas.data
-    result_tensor = torch.einsum('abc,ba->bc',stacked_tensor,alpha_tensor)
-    '''
     # TEMP: Testing alternative approach for linear combination rn
     # Thereby keeping both approaches intact for now
     alpha_slice = []
@@ -367,9 +357,6 @@ for iteration in range(ITERS):
     for og in optimizerGs:
         og.step()
     optimizer_alpha.step()
-    # lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '_1/' + 'disc cost', D_cost.cpu().data.numpy())
-    # lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '_1/' + 'wasserstein distance', Wasserstein_D.cpu().data.numpy())
-    # lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '_1/' + 'gen cost', G_cost.cpu().data.numpy())
     lib_plot.plot(MODEL_PATH+'plots/disc cost',D_cost.cpu().data.numpy())
     lib_plot.plot(MODEL_PATH+'plots/wasserstein distance',Wasserstein_D.cpu().data.numpy())
     lib_plot.plot(MODEL_PATH+'plots/gen cost',G_cost.cpu().data.numpy())
@@ -388,7 +375,6 @@ for iteration in range(ITERS):
         on the batch of documents, each having 1500 words
         ranked by their normalized tfidf values
         '''
-        # doc_name = "/home/ysahil/Academics/Sem_8/ATM_GANs/doc_gen_2_1/gen_doc_"+str(iteration)+".txt"
         doc_name = MODEL_PATH + "generated_docs/iteration_" + str(iteration)+".txt"
         print(fake.size())
         fake_np = fake.tolist()

@@ -38,9 +38,7 @@ train_dataset = "/home/sahil/deeplearning/ATM_GANs/ATM/20newsgroups_sakshi/data_
 vocab_file = "/home/sahil/deeplearning/ATM_GANs/ATM/20newsgroups_sakshi/data_20news/data/20news/vocab.new"
 MODEL_PATH = "/home/sahil/deeplearning/ATM_GANs/ATM/models/model_1/"
 
-# alpha = [np.random.randint(1,11) for i in range(0,20)]
 alpha = [1]*20
-#alpha[0] = 18.1
 vocab_text = util.create_vocab(vocab_file)
 # Topic list for Gensim Topic Coherence Pipeline
 topics_20ng = [
@@ -67,7 +65,6 @@ topics_20ng = [
 ]
 #Create the TF-IDF matrix
 def get_tfidf():
-    # vocab = util.create_vocab(dataset_path_1)
     result = util.create_dataset(train_dataset)
     return result
 
@@ -235,7 +232,6 @@ for iteration in range(ITERS):
 
     for p in ATM_D.parameters():
         p.requires_grad = False  # to avoid computation
-    # ATM_G.zero_grad()
 
     _data = next(data)
     sampled_data = torch.Tensor(_data)
@@ -245,8 +241,6 @@ for iteration in range(ITERS):
 
     fake = ATM_G(sampled_data_v)
     G = ATM_D(fake)
-    # print(fake.size())
-    # print(fake.requires_grad)
 
     G_cost = -(G.mean())
     G_cost.backward()
@@ -265,7 +259,6 @@ for iteration in range(ITERS):
         on the batch of documents, each having 1000 words
         ranked by their normalized tfidf values
         '''
-        #doc_name = "/home/ysahil/Academics/Sem_8/ATM_GANs/doc_gen/gen_doc_"+str(iteration)+".txt"
         doc_name = MODEL_PATH + "generated_docs/iteration_" + str(iteration)+".txt"
         print(fake.size())
         fake_np = fake.tolist()

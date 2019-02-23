@@ -10,8 +10,8 @@ import torch.optim as optim
 import utility as util
 import lib_plot
 
-vocab_file = "/home/ysahil/Academics/Sem_8/ATM_GANs/20newsgroups_sakshi/data_20news/data/20news/vocab.new"
-MODEL_PATH = "/home/ysahil/Academics/Sem_8/ATM_GANs/models"
+vocab_file = "/home/sahil/deeplearning/ATM_GANs/ATM/20newsgroups_sakshi/data_20news/data/20news/vocab.new"
+MODEL_PATH = "/home/sahil/deeplearning/ATM_GANs/ATM/models/model_1/"
 device = torch.device("cuda")
 
 '''

@@ -39,7 +39,6 @@ vocab_file = "/home/sahil/deeplearning/ATM_GANs/ATM/20newsgroups_sakshi/data_20n
 MODEL_PATH = "/home/sahil/deeplearning/ATM_GANs/ATM/models/model_3/"
 
 
-# alpha = [np.random.randint(1,11) for i in range(0,20)]
 alpha = [0.1]*20
 alpha[0] = 18.1
 vocab_text = util.create_vocab(vocab_file)
@@ -193,14 +192,6 @@ def calc_gradient_penalty(netD, real_data, fake_data):
     return gradient_penalty.mean()
 
 def combine_alphas_generators(fakes,alphas):
-    '''
-    fake_tensors = []
-    for i in fakes:
-        fake_tensors.append(i.data)
-    stacked_tensor = torch.stack(fake_tensors)
-    alpha_tensor = alphas.data
-    result_tensor = torch.einsum('abc,ba->bc',stacked_tensor,alpha_tensor)
-    '''
     # TEMP: Testing alternative approach for linear combination rn
     # Thereby keeping both approaches intact for now
     alpha_slice = []
@@ -343,10 +334,6 @@ for iteration in range(ITERS):
         og.zero_grad()
     alpha_g.zero_grad()
 
-    # for g in generators:
-    #     for p in g.parameters():
-    #         p.requires_grad = False  # to avoid computation
-
     _data = []
     for i in range(4):
         data_temp = next(data)
@@ -371,39 +358,30 @@ for iteration in range(ITERS):
     G_cost.backward()
     optimizer_alpha.step()
 
-    # for g in generators:
-    #     for p in g.parameters():
-    #         p.requires_grad = True  # to avoid computation
-
     for og in optimizerGs:
         og.zero_grad()
 
     m = nn.Sigmoid()
     G_1 = m(ATM_D(fakes[0]))
-    # print(type(G_1))
     G_cost_1 = autograd.Variable((-1*G_1),requires_grad = True).mean()
-    # G_cost_1.backward()
+
     G_2 = m(ATM_D(fakes[1]))
-    #G_cost_2 = autograd.Variable((-1*torch.log(G_2)).mean()*(1-G_1),requires_grad=True).mean()
     G_cost_2 = autograd.Variable(-1*G_2,requires_grad = True).mean()*autograd.Variable((1-G_1),requires_grad = True).mean()
-    # G_cost_2.backward()
+
     G_3 = m(ATM_D(fakes[2]))
     norm_3 = torch.reciprocal(torch.add(torch.reciprocal(1-G_1),torch.reciprocal(1-G_2)))*2
-    # G_cost_3 = autograd.Variable((-1*torch.log(G_3)).mean()*(norm_3),requires_grad=True).mean()
     G_cost_3 = autograd.Variable(-1*G_3,requires_grad=True).mean()*autograd.Variable(norm_3,requires_grad=True).mean()
+
     G_4 = m(ATM_D(fakes[3]))
     norm_4 = torch.reciprocal(torch.add(torch.add(torch.reciprocal(1-G_1),torch.reciprocal(1-G_2)),torch.reciprocal(1-G_3)))*3
-    # G_cost_4 = autograd.Variable((-1*torch.log(G_4)),requires_grad=True).mean()*(norm_4).mean()
     G_cost_4 = autograd.Variable(-1*G_4,requires_grad = True).mean()*autograd.Variable(norm_4,requires_grad=True).mean()
+
     G_cost_1.backward()
     G_cost_2.backward()
     G_cost_3.backward()
     G_cost_4.backward()
     for og in optimizerGs:
         og.step()
-    # lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '_1/' + 'disc cost', D_cost.cpu().data.numpy())
-    # lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '_1/' + 'wasserstein distance', Wasserstein_D.cpu().data.numpy())
-    # lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '_1/' + 'gen cost', G_cost.cpu().data.numpy())
     lib_plot.plot(MODEL_PATH+'plots/disc cost',D_cost.cpu().data.numpy())
     lib_plot.plot(MODEL_PATH+'plots/wasserstein distance',Wasserstein_D.cpu().data.numpy())
     lib_plot.plot(MODEL_PATH+'plots/alpha gen cost',G_cost.cpu().data.numpy())
@@ -426,7 +404,6 @@ for iteration in range(ITERS):
         on the batch of documents, each having 1500 words
         ranked by their normalized tfidf values
         '''
-        # doc_name = "/home/ysahil/Academics/Sem_8/ATM_GANs/doc_gen_2_1/gen_doc_"+str(iteration)+".txt"
         doc_name = MODEL_PATH + "generated_docs/iteration_" + str(iteration)+".txt"
         print(fake.size())
         fake_np = fake.tolist()

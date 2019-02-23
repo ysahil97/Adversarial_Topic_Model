@@ -39,29 +39,6 @@ A_1 = 0.00015
 B_1 = 0
 B_2 = 0.9
 
-topics_20ng = [
-    ['alternative','atheism'],
-    ['computer', 'graphics'],
-    ['computer','os','ms','windows'],
-    ['computer','sys','ibm','pc','hardware'],
-    ['computer','sys','mac','hardware'],
-    ['computer','windows'],
-    ['misc','sale'],
-    ['rec','auto'],
-    ['rec','motorcycle'],
-    ['rec','sport','baseball'],
-    ['rec','sport','hockey'],
-    ['science','crypto'],
-    ['science','electronics'],
-    ['science','medical'],
-    ['science','space'],
-    ['society','religion','christian'],
-    ['talk','politics','guns'],
-    ['talk','politics','middle','east'],
-    ['talk','politics','misc'],
-    ['talk','religion','misc']
-]
-
 torch.manual_seed(1)
 use_cuda = True
 vocab_text = util.create_vocab(vocab_file)
@@ -134,7 +111,6 @@ def generate_docs(alpha,num_topics,test_G, test_D):
         data = inf_data_gen(alpha)
         _data = next(data)
         sampled_data = torch.Tensor(_data)
-        # input = input.to(device)
         if use_cuda:
             sampled_data = sampled_data.cuda()
         sampled_data_v = autograd.Variable(sampled_data)
@@ -142,7 +118,6 @@ def generate_docs(alpha,num_topics,test_G, test_D):
         fake = test_G(sampled_data_v)
         fake_np = fake.tolist()
         text_data = util.tfidf2doc(fake_np,vocab_text)
-#        text_d += text_data
         for doc_iter in range(32):
             doc_name = EVAL_GENERATED_FOLDER+"topic_"+str(ia+1)+"/doc_"+str(doc_iter)+".txt"
             with open(doc_name, 'w') as myfile:
@@ -154,7 +129,6 @@ def generate_docs(alpha,num_topics,test_G, test_D):
                     doc_content += vocab_text[t_list[i][0]] + ' '
                 myfile.write(doc_content)
         alpha[ia] = 1
-       # filename = EVAL_GENERATED_FOLDER
 
         for first in range(31):
             for second in range(first+1,32):
@@ -162,9 +136,6 @@ def generate_docs(alpha,num_topics,test_G, test_D):
                 second_list = fake_np[second]
                 cosine_result = cos_sim(first_list,second_list)
                 cosine_scores.append(cosine_result)
-               # print(cosine_result)
-               # break
-           # break
         print("Topic "+str(ia+1)+":\n")
         print("Mean of cosine scores: "+str(np.mean(cosine_scores))+"\nVariance of cosine scores: "+str(np.var(cosine_scores))+"\n\n")
         temp = []
@@ -172,34 +143,21 @@ def generate_docs(alpha,num_topics,test_G, test_D):
             temp.append(fake_np[i]) 
         between_topics_vectors.append(temp)
 
-   # print(between_topics_vectors[0][1])
-   # print(between_topics_vectors[1][1])
-    mn = []
-    vr = []
     for i in range(20):
-        mn = []
-        vr = []
+        m = []
+        variance_vector = []
         for j in range(20):
             if i != j:
                 temp = list()
-       # mn = list()
-       # vr = list()
                 for k in range(32):
                     for l in range(32):
                         if k != l:
                             x = cos_sim(between_topics_vectors[i][k],between_topics_vectors[j][l])
                             temp.append(x)
-       # print(temp)
-       # between_topics_mean[0][j] = np.mean(temp)
-       # between_topics_variance[0][j] = np.var(temp)
-            mn.append(np.mean(temp))
-            vr.append(np.var(temp))
-   # print(between_topics_mean)
-   # print(between_topics_variance)
-        #print(mn)
-        #print(vr)
-        between_topics_mean.append(mn)
-        between_topics_variance.append(vr)
+            mean_vector.append(np.mean(temp))
+            variance_vector.append(np.var(temp))
+        between_topics_mean.append(mean_vector)
+        between_topics_variance.append(variance_vector)
     x = np.array(between_topics_mean)
     y = np.array(between_topics_variance)
     fill_topic_report(between_topics_mean,between_topics_variance,num_topics)
