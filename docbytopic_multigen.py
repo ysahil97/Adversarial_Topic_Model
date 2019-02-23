@@ -10,13 +10,14 @@ import torch.optim as optim
 import utility as util
 import lib_plot
 
-vocab_file = "/home/ysahil/Academics/Sem_8/ATM_GANs/20newsgroups_sakshi/data_20news/data/20news/vocab.new"
-MODEL_PATH = "/home/ysahil/Academics/Sem_8/ATM_GANs/models/model_2/"
+vocab_file = "/home/sahil/deeplearning/ATM_GANs/ATM/20newsgroups_sakshi/data_20news/data/20news/vocab.new"
+MODEL_PATH = "/home/sahil/deeplearning/ATM_GANs/ATM/models/model_3/"
 device = torch.device("cuda")
 
 '''
 Important model parameters
 '''
+NUM_NOISE = 3
 DATASET = "20newsgroups" # For now, we just test it on 20newsgroups dataset
 NUM_TOPICS = 20
 LAMBDA = 10 # Gradient penalty lambda hyperparameter
@@ -31,16 +32,32 @@ B_1 = 0
 B_2 = 0.9
 
 topics_20ng = [
-    ['alternative','atheism','religion','god','bible','christian','graphics'],
-    ['computer','windows','os','ms','hardware','file','ibm','machine'],
-    ['science','crypto','electronics','medical','electronics','medicine','space'],
-    ['society','religion','christian','talk','politics','guns','middle','east'],
+    [ 'sale' , 'driver' , 'wire' , 'card' , 'price' , "application" ,'software', 'monitor'],
+    ['game' , 'team' , 'play' , 'player' , 'hockey' , 'season' ,  'league' , 'pittsburgh'],
+    ['kill' , 'bike', 'live' , 'leave' , 'weapon' , 'happen' , 'gun', 'crime' , 'car' , 'hand'],
+    # ['computer','windows','os','ms','hardware','file','ibm','machine'],
+    ['space','nasa' , 'drive' , 'scsi' , 'orbit' , 'launch' ,'data' ,'control' , 'earth' ,'moon'],
+    # ['armenian','people','war','israel','israeli','arab','jew','kill','turkish','attack'],
     # ['car','auto','drivers','bikes','motors','wheels'],
 ]
 
 torch.manual_seed(1)
 use_cuda = True
 vocab_text = util.create_vocab(vocab_file)
+# print(vocab_text)
+# exit()
+
+def inf_alpha_gen():
+    if DATASET == "20newsgroups":
+        while True:
+            dataset = []
+            for i in range(BATCH_SIZE):
+                sample = np.random.normal(loc = 0.5,size=NUM_NOISE)
+                dataset.append(sample)
+            dataset = np.array(dataset, dtype='float32')
+            np.random.shuffle(dataset)
+            yield dataset
+
 
 '''
 Iterators for fake data used in Generator
@@ -89,11 +106,27 @@ class discriminator(nn.Module):
         output = self.main(inputs)
         return output.view(-1)
 
+class alpha_generator(nn.Module):
+    def __init__(self):
+        super(alpha_generator,self).__init__()
+        main = nn.Sequential(
+               nn.Linear(NUM_NOISE,10),
+               nn.LeakyReLU(LEAK_FACTOR,True),
+               nn.BatchNorm1d(10),
+               nn.Linear(10,4),
+               nn.Softmax()
+        )
+        self.main = main
+
+    def forward(self,noise):
+        output = self.main(noise)
+        return output
+
 def assign_topic_to_generator(fakes,topics_20ng):
     '''
     Assuming U_mass score for now
     '''
-    doc_multi_name = MODEL_PATH + "results/result_saved_model.log"
+    doc_multi_name = MODEL_PATH + "results/result_saved_model_3.log"
     fake_data = [i.tolist() for i in fakes]
     topic_cnt = 0
     topic_coherence_store_umass = [list() for i in range(4)]
@@ -117,7 +150,7 @@ def assign_topic_to_generator(fakes,topics_20ng):
             coherence_cuci = cm_cuci.get_coherence()  # get coherence value
             cm_npmi = CoherenceModel(topics=topic, corpus=corpus_newsgroups, dictionary=id2word, texts=text_data, coherence='c_npmi')
             coherence_npmi = cm_npmi.get_coherence()  # get coherence value
-            print(topic_coherence_store_umass[model_cnt])
+            #print(topic_coherence_store_umass[model_cnt])
             topic_coherence_store_umass[model_cnt].append(tuple((coherence_umass,topic_cnt)))
             topic_coherence_store_cv[model_cnt].append(tuple((coherence_cv,topic_cnt)))
             topic_coherence_store_cuci[model_cnt].append(tuple((coherence_cuci,topic_cnt)))
@@ -168,9 +201,27 @@ def assign_topic_to_generator(fakes,topics_20ng):
                 doc_content += str(k[0])+","
             doc_content += "\n"
         doc_content += "\n"
-
+        print(doc_content)
         myfile.write(doc_content)
+    return
 
+def get_top_10(fakes,vocab_text):
+    doc_multi_name = MODEL_PATH + "results/result_saved_model_top10words.log"
+    fake_data = [i.data for i in fakes]
+
+    doc_content = ""
+    for i in range(4):
+        result_tensor = torch.einsum('ab->b',fake_data[i])
+        x = result_tensor.tolist()
+        sorted_tensor = [(y,z) for z, y in enumerate(x)]
+        sorted_tensor.sort()
+        doc_content += "Generator_"+str(i)+": "
+        for k in range(50):
+            doc_content += vocab_text[sorted_tensor[k][1]]+", "
+        doc_content += '\n'
+
+    with open(doc_multi_name, 'w') as myfile:
+        myfile.write(doc_content)
     return
 
 generators = []
@@ -192,41 +243,29 @@ generators.append(test_G_1)
 generators.append(test_G_2)
 generators.append(test_G_3)
 generators.append(test_G_4)
-
+alpha_g = alpha_generator()
+alpha_g.load_state_dict(torch.load(MODEL_PATH+"atm_alpha_generator.pt"))
+alpha_g.to(device)
 # test_D.to(device)
 
 
 alpha = [0.1]*20
 text_d = []
-# for ia in range(10):
-#     alpha[ia] = 100.1
-#     data = inf_data_gen(alpha)
-#     _data = next(data)
-#     sampled_data = torch.Tensor(_data)
-#     # input = input.to(device)
-#     if use_cuda:
-#         sampled_data = sampled_data.cuda()
-#     sampled_data_v = autograd.Variable(sampled_data)
-#
-#     fake = test_G(sampled_data_v)
-#     fake_np = fake.tolist()
-#     text_data = util.tfidf2doc(fake_np,vocab_text)
-#     text_d += text_data
-#     for doc_iter in range(128):
-#         doc_name = "/home/ysahil/Academics/Sem_8/ATM_GANs/ATM_testgen_docs/topic"+str(ia+1)+"/doc_"+str(doc_iter)+".txt"
-#         with open(doc_name, 'w') as myfile:
-#             t_list = list(enumerate(list(fake_np[doc_iter])))
-#             t_list.sort(key = lambda x: x[1])
-#             t_list.reverse()
-#             doc_content = ""
-#             for i in range(50):
-#                     doc_content += vocab_text[t_list[i][0]] + ' '
-#             myfile.write(doc_content)
-#     alpha[ia] = 0.1
 
 
 data = inf_data_gen()
+alpha_data = inf_alpha_gen()
 fakes = []
+_data = next(alpha_data)
+sampled_data = torch.Tensor(_data)
+# print(sampled_data.size())
+if use_cuda:
+    sampled_data = sampled_data.cuda()
+sampled_data_v = autograd.Variable(sampled_data)
+
+result = alpha_g(sampled_data_v).data
+#print(result)
+
 for i in range(4):
     _data = next(data)
     sampled_data = torch.Tensor(_data)
@@ -237,6 +276,7 @@ for i in range(4):
     # _data_v.append(sampled_data_v)
     fakes.append(autograd.Variable(generators[i](sampled_data_v).data))
 
+get_top_10(fakes,vocab_text)
 assign_topic_to_generator(fakes,topics_20ng)
 # id2word = corpora.Dictionary(text_d)
 # corpus_newsgroups = [id2word.doc2bow(text) for text in text_d]

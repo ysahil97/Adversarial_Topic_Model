@@ -32,15 +32,15 @@ B_1 = 0
 B_2 = 0.9
 
 # Temporary change, needs to be changed later
-dataset_path = "/home/ysahil/Academics/Sem_8/ATM_GANs/20news/20news-18828/all_docs"
-dataset_path_1 = "/home/ysahil/Academics/Sem_8/ATM_GANs/20news/20news-18828"
-train_dataset = "/home/ysahil/Academics/Sem_8/ATM_GANs/20newsgroups_sakshi/data_20news/data/20news/train.feat"
-vocab_file = "/home/ysahil/Academics/Sem_8/ATM_GANs/20newsgroups_sakshi/data_20news/data/20news/vocab.new"
-MODEL_PATH = "/home/ysahil/Academics/Sem_8/ATM_GANs/models/"
+dataset_path = "/home/sahil/deeplearning/ATM_GANs/ATM/20news/20news-18828/all_docs"
+dataset_path_1 = "/home/sahil/deeplearning/ATM_GANs/ATM/20news/20news-18828"
+train_dataset = "/home/sahil/deeplearning/ATM_GANs/ATM/20newsgroups_sakshi/data_20news/data/20news/combined.feat"
+vocab_file = "/home/sahil/deeplearning/ATM_GANs/ATM/20newsgroups_sakshi/data_20news/data/20news/vocab.new"
+MODEL_PATH = "/home/sahil/deeplearning/ATM_GANs/ATM/models/model_1/"
 
 # alpha = [np.random.randint(1,11) for i in range(0,20)]
-alpha = [0.1]*20
-alpha[0] = 18.1
+alpha = [1]*20
+#alpha[0] = 18.1
 vocab_text = util.create_vocab(vocab_file)
 # Topic list for Gensim Topic Coherence Pipeline
 topics_20ng = [
@@ -251,9 +251,9 @@ for iteration in range(ITERS):
     G_cost = -(G.mean())
     G_cost.backward()
     optimizerG.step()
-    lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '/' + 'disc cost', D_cost.cpu().data.numpy())
-    lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '/' + 'wasserstein distance', Wasserstein_D.cpu().data.numpy())
-    lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '/' + 'gen cost', G_cost.cpu().data.numpy())
+    lib_plot.plot(MODEL_PATH + 'plots/disc cost', D_cost.cpu().data.numpy())
+    lib_plot.plot(MODEL_PATH + 'plots/wasserstein distance', Wasserstein_D.cpu().data.numpy())
+    lib_plot.plot(MODEL_PATH + 'plots/gen cost', G_cost.cpu().data.numpy())
     if iteration % 100 == 99:
         print("Epoch %s\n" % iteration)
         lib_plot.flush()
@@ -265,7 +265,8 @@ for iteration in range(ITERS):
         on the batch of documents, each having 1000 words
         ranked by their normalized tfidf values
         '''
-        doc_name = "/home/ysahil/Academics/Sem_8/ATM_GANs/doc_gen/gen_doc_"+str(iteration)+".txt"
+        #doc_name = "/home/ysahil/Academics/Sem_8/ATM_GANs/doc_gen/gen_doc_"+str(iteration)+".txt"
+        doc_name = MODEL_PATH + "generated_docs/iteration_" + str(iteration)+".txt"
         print(fake.size())
         fake_np = fake.tolist()
         print(type(fake_np))

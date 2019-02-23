@@ -36,7 +36,8 @@ dataset_path = "/home/sahil/deeplearning/ATM_GANs/ATM/20news/20news-18828/all_do
 dataset_path_1 = "/home/sahil/deeplearning/ATM_GANs/ATM/20news/20news-18828"
 train_dataset = "/home/sahil/deeplearning/ATM_GANs/ATM/20newsgroups_sakshi/data_20news/data/20news/train.feat"
 vocab_file = "/home/sahil/deeplearning/ATM_GANs/ATM/20newsgroups_sakshi/data_20news/data/20news/vocab.new"
-MODEL_PATH = "/home/sahil/deeplearning/ATM_GANs/ATM/models/model_2/"
+MODEL_PATH = "/home/sahil/deeplearning/ATM_GANs/ATM/models/model_3/"
+
 
 # alpha = [np.random.randint(1,11) for i in range(0,20)]
 alpha = [0.1]*20
@@ -342,6 +343,10 @@ for iteration in range(ITERS):
         og.zero_grad()
     alpha_g.zero_grad()
 
+    # for g in generators:
+    #     for p in g.parameters():
+    #         p.requires_grad = False  # to avoid computation
+
     _data = []
     for i in range(4):
         data_temp = next(data)
@@ -364,15 +369,48 @@ for iteration in range(ITERS):
     G = ATM_D(fake)
     G_cost = -(G.mean())
     G_cost.backward()
+    optimizer_alpha.step()
+
+    # for g in generators:
+    #     for p in g.parameters():
+    #         p.requires_grad = True  # to avoid computation
+
+    for og in optimizerGs:
+        og.zero_grad()
+
+    m = nn.Sigmoid()
+    G_1 = m(ATM_D(fakes[0]))
+    # print(type(G_1))
+    G_cost_1 = autograd.Variable((-1*G_1),requires_grad = True).mean()
+    # G_cost_1.backward()
+    G_2 = m(ATM_D(fakes[1]))
+    #G_cost_2 = autograd.Variable((-1*torch.log(G_2)).mean()*(1-G_1),requires_grad=True).mean()
+    G_cost_2 = autograd.Variable(-1*G_2,requires_grad = True).mean()*autograd.Variable((1-G_1),requires_grad = True).mean()
+    # G_cost_2.backward()
+    G_3 = m(ATM_D(fakes[2]))
+    norm_3 = torch.reciprocal(torch.add(torch.reciprocal(1-G_1),torch.reciprocal(1-G_2)))*2
+    # G_cost_3 = autograd.Variable((-1*torch.log(G_3)).mean()*(norm_3),requires_grad=True).mean()
+    G_cost_3 = autograd.Variable(-1*G_3,requires_grad=True).mean()*autograd.Variable(norm_3,requires_grad=True).mean()
+    G_4 = m(ATM_D(fakes[3]))
+    norm_4 = torch.reciprocal(torch.add(torch.add(torch.reciprocal(1-G_1),torch.reciprocal(1-G_2)),torch.reciprocal(1-G_3)))*3
+    # G_cost_4 = autograd.Variable((-1*torch.log(G_4)),requires_grad=True).mean()*(norm_4).mean()
+    G_cost_4 = autograd.Variable(-1*G_4,requires_grad = True).mean()*autograd.Variable(norm_4,requires_grad=True).mean()
+    G_cost_1.backward()
+    G_cost_2.backward()
+    G_cost_3.backward()
+    G_cost_4.backward()
     for og in optimizerGs:
         og.step()
-    optimizer_alpha.step()
     # lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '_1/' + 'disc cost', D_cost.cpu().data.numpy())
     # lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '_1/' + 'wasserstein distance', Wasserstein_D.cpu().data.numpy())
     # lib_plot.plot('/home/ysahil/Academics/Sem_8/ATM_GANs/' + DATASET + '_1/' + 'gen cost', G_cost.cpu().data.numpy())
     lib_plot.plot(MODEL_PATH+'plots/disc cost',D_cost.cpu().data.numpy())
     lib_plot.plot(MODEL_PATH+'plots/wasserstein distance',Wasserstein_D.cpu().data.numpy())
-    lib_plot.plot(MODEL_PATH+'plots/gen cost',G_cost.cpu().data.numpy())
+    lib_plot.plot(MODEL_PATH+'plots/alpha gen cost',G_cost.cpu().data.numpy())
+    lib_plot.plot(MODEL_PATH+'plots/gen 1 cost',G_cost_1.cpu().data.numpy())
+    lib_plot.plot(MODEL_PATH+'plots/gen 2 cost',G_cost_2.cpu().data.numpy())
+    lib_plot.plot(MODEL_PATH+'plots/gen 3 cost',G_cost_3.cpu().data.numpy())
+    lib_plot.plot(MODEL_PATH+'plots/gen 4 cost',G_cost_4.cpu().data.numpy())
     if iteration % 100 == 99:
         print("Epoch %s\n" % iteration)
         lib_plot.flush()
