@@ -100,6 +100,15 @@ def fill_topic_report(mean_matrix,variance_matrix,num_topics):
                 doc_content += "Topics "+str(ia+1)+" and "+str(j+1) + ":\nMean: "+str(mean_matrix[ia][j])+" Variance: "+str(variance_matrix[ia][j])+"\n\n"
             myfile.write(doc_content)
 
+def top_val(vector,tops):
+    t_list = list(enumerate(list(vector)))
+    t_list.sort(key = lambda x : x[1])
+    t_list.reverse()
+    result_vector = [0]*2000
+    for i in range(tops):
+        result_vector[t_list[i][0]] = t_list[i][1]
+    return result_vector
+
 def generate_docs(alpha,num_topics,test_G, test_D):
 
     between_topics_mean = list()
@@ -132,30 +141,30 @@ def generate_docs(alpha,num_topics,test_G, test_D):
 
         for first in range(31):
             for second in range(first+1,32):
-                first_list = fake_np[first]
-                second_list = fake_np[second]
+                first_list =top_val(fake_np[first],100)
+                second_list = top_val(fake_np[second],100)
                 cosine_result = cos_sim(first_list,second_list)
                 cosine_scores.append(cosine_result)
         print("Topic "+str(ia+1)+":\n")
         print("Mean of cosine scores: "+str(np.mean(cosine_scores))+"\nVariance of cosine scores: "+str(np.var(cosine_scores))+"\n\n")
         temp = []
         for i in range(32):
-            temp.append(fake_np[i]) 
+            temp.append(top_val(fake_np[i],100)) 
         between_topics_vectors.append(temp)
 
     for i in range(20):
-        m = []
+        mean_vector = []
         variance_vector = []
         for j in range(20):
-            if i != j:
-                temp = list()
-                for k in range(32):
-                    for l in range(32):
-                        if k != l:
-                            x = cos_sim(between_topics_vectors[i][k],between_topics_vectors[j][l])
-                            temp.append(x)
-            mean_vector.append(np.mean(temp))
-            variance_vector.append(np.var(temp))
+           # if i != j:
+             temp = list()
+             for k in range(32):
+                 for l in range(32):
+                     if k != l:
+                         x = cos_sim(between_topics_vectors[i][k],between_topics_vectors[j][l])
+                         temp.append(x)
+             mean_vector.append(np.mean(temp))
+             variance_vector.append(np.var(temp))
         between_topics_mean.append(mean_vector)
         between_topics_variance.append(variance_vector)
     x = np.array(between_topics_mean)
