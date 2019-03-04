@@ -18,12 +18,12 @@ use_cuda = True
 '''
 Important model parameters
 '''
-DATASET = "20newsgroups" # For now, we just test it on 20newsgroups dataset
-NUM_TOPICS = 20
+DATASET = "grolier" # For now, we just test it on 20newsgroups dataset
+#NUM_TOPICS = 20
 LAMBDA = 10 # Gradient penalty lambda hyperparameter
 CRITIC_ITERS = 10 # For WGAN and WGAN-GP, number of critic iters per gen iter
 ITERS = 40600 # How many generator iterations to train for
-VOCAB_SIZE = 2000# Vocab length of the generator
+#VOCAB_SIZE = 2000# Vocab length of the generator
 GENERATOR_PARAM = 100 # Number of neurons in the middle layer of the generator
 LEAK_FACTOR = 0.2 # leak parameter used in generator
 BATCH_SIZE = 512
@@ -34,12 +34,23 @@ B_2 = 0.9
 # Temporary change, needs to be changed later
 dataset_path = "/home/sahil/deeplearning/ATM_GANs/ATM/20news/20news-18828/all_docs"
 dataset_path_1 = "/home/sahil/deeplearning/ATM_GANs/ATM/20news/20news-18828"
-train_dataset = "/home/sahil/deeplearning/ATM_GANs/ATM/20newsgroups_sakshi/data_20news/data/20news/combined.feat"
-vocab_file = "/home/sahil/deeplearning/ATM_GANs/ATM/20newsgroups_sakshi/data_20news/data/20news/vocab.new"
-MODEL_PATH = "/home/sahil/deeplearning/ATM_GANs/ATM/models/model_1/"
+if DATASET == "20newsgroups":
+    train_dataset = "/home/sahil/deeplearning/ATM_GANs/ATM/20newsgroups_sakshi/data_20news/data/20news/combined.feat"
+    vocab_file = "/home/sahil/deeplearning/ATM_GANs/ATM/20newsgroups_sakshi/data_20news/data/20news/vocab.new"
+    MODEL_PATH = "/home/sahil/deeplearning/ATM_GANs/ATM/models/model_1/20newsgroups/"
+    vocab_text = util.create_vocab(vocab_file)
+    VOCAB_SIZE = 2000
+    NUM_TOPICS = 20
+elif DATASET == "grolier":
+    MODEL_PATH = "/home/sahil/deeplearning/ATM_GANs/ATM/models/model_1/grolier/"
+    train_dataset = "/home/sahil/deeplearning/ATM_GANs/ATM/datasets/grolier/result_dataset.feat"
+    vocab_file = "/home/sahil/deeplearning/ATM_GANs/ATM/datasets/grolier/grolier15276_words.txt"
+    vocab_text = util.create_vocab_grolier(vocab_file)
+    VOCAB_SIZE = 15276
+    NUM_TOPICS = 20
 
 alpha = [1]*20
-vocab_text = util.create_vocab(vocab_file)
+#vocab_text = util.create_vocab(vocab_file)
 # Topic list for Gensim Topic Coherence Pipeline
 topics_20ng = [
     ['alternative','atheism'],
@@ -65,7 +76,7 @@ topics_20ng = [
 ]
 #Create the TF-IDF matrix
 def get_tfidf():
-    result = util.create_dataset(train_dataset)
+    result = util.create_dataset(train_dataset,DATASET)
     return result
 
 def representation_map(result):
@@ -126,15 +137,15 @@ def weights_init(m):
 Iterators for fake data used in Generator
 '''
 def inf_data_gen(alpha):
-    if DATASET == "20newsgroups":
-        while True:
-            dataset = []
-            for i in range(BATCH_SIZE):
-                sample = np.random.dirichlet(alpha)
-                dataset.append(sample)
-            dataset = np.array(dataset, dtype='float32')
-            np.random.shuffle(dataset)
-            yield dataset
+    #if DATASET == "20newsgroups":
+    while True:
+        dataset = []
+        for i in range(BATCH_SIZE):
+            sample = np.random.dirichlet(alpha)
+            dataset.append(sample)
+        dataset = np.array(dataset, dtype='float32')
+        np.random.shuffle(dataset)
+        yield dataset
 
 '''
 Iterators for real data sampled from corpus
@@ -263,6 +274,7 @@ for iteration in range(ITERS):
         print(fake.size())
         fake_np = fake.tolist()
         print(type(fake_np))
+        '''
         text_data = util.tfidf2doc(fake_np,vocab_text)
         id2word = corpora.Dictionary(text_data)
         corpus_newsgroups = [id2word.doc2bow(text) for text in text_data]
@@ -278,6 +290,8 @@ for iteration in range(ITERS):
         print("Coherence(C_v):    "+str(coherence_cv))
         print("Coherence(C_uci):  "+str(coherence_cuci))
         print("Coherence(C_npmi): "+str(coherence_npmi))
+        '''
+
         '''
         Document generation of a sample using top 100 words
         ranked by their normalized tf-idf values

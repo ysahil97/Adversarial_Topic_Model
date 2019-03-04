@@ -64,6 +64,14 @@ def create_vocab(dataset_path):
             data.append(i.split(' ')[0])#=myfile.read().replace('\n', ' ')
     return data
 
+def create_vocab_grolier(dataset_path):
+    data = []
+    with open(dataset_path, 'r') as myfile:
+        lines = myfile.readlines()
+        for i in lines:
+            data.append(i.strip('\n'))#=myfile.read().replace('\n', ' ')
+    return data
+
 def create_tfidf(dataset_path,vocab):
     list_docs = []
     vectorizer = TfidfVectorizer(stop_words='english',vocabulary=vocab,strip_accents='unicode')
@@ -85,8 +93,12 @@ def create_tfidf(dataset_path,vocab):
     return n_c_result
 
 
-def create_dataset(data_url):
-    vocab_length = 2000
+def create_dataset(data_url,dataset):
+    if dataset == "20newsgroups":
+        vocab_length = 2000
+    elif dataset == "grolier":
+        vocab_length = 15276
+
     tf = TfidfTransformer()
     """process data input."""
     data = []
@@ -100,7 +112,7 @@ def create_dataset(data_url):
 
         doc = {}
         count = 0
-        doc_a = [0 for i in range(0,2000)]
+        doc_a = [0 for i in range(0,vocab_length)]
         doc_a = np.array(doc_a)
         for id_freq in id_freqs[1:]:
           items = id_freq.split(':')

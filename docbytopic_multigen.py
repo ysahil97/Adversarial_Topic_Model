@@ -11,7 +11,7 @@ import utility as util
 import lib_plot
 
 vocab_file = "/home/sahil/deeplearning/ATM_GANs/ATM/20newsgroups_sakshi/data_20news/data/20news/vocab.new"
-MODEL_PATH = "/home/sahil/deeplearning/ATM_GANs/ATM/models/model_3/"
+MODEL_PATH = "/home/sahil/deeplearning/ATM_GANs/ATM/models/model_2/"
 device = torch.device("cuda")
 
 '''
@@ -205,6 +205,25 @@ def assign_topic_to_generator(fakes,topics_20ng):
         myfile.write(doc_content)
     return
 
+def assign_topic_to_combined_generator(fake,topics_20ng):
+    fake_np = fake.tolist()
+    print(type(fake_np))
+    text_data = util.tfidf2doc(fake_np,vocab_text)
+    id2word = corpora.Dictionary(text_data)
+    corpus_newsgroups = [id2word.doc2bow(text) for text in text_data]
+    cm_umass = CoherenceModel(topics=topics_20ng, corpus=corpus_newsgroups, dictionary=id2word, texts=text_data, coherence='u_mass')
+    coherence_umass = cm_umass.get_coherence()  # get coherence value
+    cm_cv = CoherenceModel(topics=topics_20ng, corpus=corpus_newsgroups, dictionary=id2word, texts=text_data, coherence='c_v')
+    coherence_cv = cm_cv.get_coherence()  # get coherence value
+    cm_cuci = CoherenceModel(topics=topics_20ng, corpus=corpus_newsgroups, dictionary=id2word, texts=text_data, coherence='c_uci')
+    coherence_cuci = cm_cuci.get_coherence()  # get coherence value
+    cm_npmi = CoherenceModel(topics=topics_20ng, corpus=corpus_newsgroups, dictionary=id2word, texts=text_data, coherence='c_npmi')
+    coherence_npmi = cm_npmi.get_coherence()  # get coherence value
+    print("Coherence(U_mass): "+str(coherence_umass))
+    print("Coherence(C_v):    "+str(coherence_cv))
+    print("Coherence(C_uci):  "+str(coherence_cuci))
+    print("Coherence(C_npmi): "+str(coherence_npmi)) 
+
 def get_top_10(fakes,vocab_text):
     doc_multi_name = MODEL_PATH + "results/result_saved_model_top10words.log"
     fake_data = [i.data for i in fakes]
@@ -223,6 +242,42 @@ def get_top_10(fakes,vocab_text):
     with open(doc_multi_name, 'w') as myfile:
         myfile.write(doc_content)
     return
+
+def get_top_10_combined(fake,vocab_text):
+    doc_multi_name = MODEL_PATH + "results/result_saved_combinedmodel_top10words.log"
+
+    doc_content = ""
+    #fake_data = [i.data for i in fakes]
+    result_tensor = torch.einsum('ab->b',fake)
+    x = result_tensor.tolist()
+    sorted_tensor = [(y,z) for z, y in enumerate(x)]
+    sorted_tensor.sort()
+    doc_content += "Generator_"+str(i)+": "
+    for k in range(50):
+        doc_content += vocab_text[sorted_tensor[k][1]]+", "
+    doc_content += '\n'
+
+    #doc_content = ""
+    with open(doc_multi_name, 'w') as myfile:
+        myfile.write(doc_content)
+    return
+
+
+
+def combine_alphas_generators(fakes,alphas):
+    alpha_slice = []
+    alpha_tensor = alphas.data
+    alpha_tensor.requires_grad = True
+    result_tensor = torch.zeros(BATCH_SIZE,VOCAB_SIZE,requires_grad=True)
+    if use_cuda:
+        result_tensor = result_tensor.cuda()
+    for i in range(len(fakes)):
+        x = alpha_tensor[:,i]
+        x.unsqueeze_(-1)
+        x = x.expand(BATCH_SIZE,VOCAB_SIZE)
+        result_tensor += x*fakes[i]
+    return autograd.Variable(result_tensor,requires_grad=True)
+
 
 generators = []
 test_G_1 = generator()
@@ -276,8 +331,13 @@ for i in range(4):
     # _data_v.append(sampled_data_v)
     fakes.append(autograd.Variable(generators[i](sampled_data_v).data))
 
+fake = combine_alphas_generators(fakes,result)
+
 get_top_10(fakes,vocab_text)
-assign_topic_to_generator(fakes,topics_20ng)
+get_top_10_combined(fake,vocab_text)
+#assign_topic_to_generator(fakes,topics_20ng)
+assign_topic_to_combined_generator(fake,topics_20ng)
+
 # id2word = corpora.Dictionary(text_d)
 # corpus_newsgroups = [id2word.doc2bow(text) for text in text_d]
 # cm_umass = CoherenceModel(topics=topics_20ng, corpus=corpus_newsgroups, dictionary=id2word, texts=text_d, coherence='u_mass')
