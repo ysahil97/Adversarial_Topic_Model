@@ -237,6 +237,39 @@ def generate_docs(num_topics,alpha_g, generators):
 
     print(x)
     print(y)
+
+def cos_similarity(fakes,k):
+    between_topics_mean = list()
+    between_topics_variance = list()
+    between_topics_vectors = []
+    for topic in range(k):
+        temp = []
+        fake_np = fakes[topic].tolist()
+        for i in range(32):
+            temp.append(top_val(fake_np[i],50))
+        between_topics_vectors.append(temp)
+
+    for i in range(4):
+        mean_vector = []
+        variance_vector = []
+        for j in range(4):
+           # if i != j:
+             temp = list()
+             for k in range(32):
+                 for l in range(32):
+                     if k != l:
+                         x = cos_sim(between_topics_vectors[i][k],between_topics_vectors[j][l])
+                         temp.append(x)
+             mean_vector.append(np.mean(temp))
+             variance_vector.append(np.var(temp))
+        between_topics_mean.append(mean_vector)
+        between_topics_variance.append(variance_vector)
+    x = np.array(between_topics_mean)
+    y = np.array(between_topics_variance)
+    fill_topic_report(between_topics_mean,between_topics_variance,k)
+    print(x)
+    print(y)
+
 '''                
 test_G = generator()
 test_D = discriminator()

@@ -49,6 +49,19 @@ elif DATASET == "grolier":
     NUM_TOPICS = 4
 
 
+#Create the TF-IDF matrix
+def get_tfidf():
+    result = util.create_dataset(train_dataset,DATASET)
+    return result
+
+def representation_map(result):
+    sam_doc = util.sample_document(result)
+    return sam_doc
+
+# Create normalized tfidf matrix (one time)
+test_result = get_tfidf()
+
+
 
 
 '''
@@ -83,6 +96,13 @@ topics_20ng = [
     ['space','nasa' , 'drive' , 'scsi' , 'orbit' , 'launch' ,'data' ,'control' , 'earth' ,'moon'],
     # ['armenian','people','war','israel','israeli','arab','jew','kill','turkish','attack'],
     # ['car','auto','drivers','bikes','motors','wheels'],
+]
+
+topics_20ng = [
+['left', 'john', 'saved', 'william', 'computer', 'fun', 'mike', 'prevent', 'island', 'pain', 'moved', 'off', 'currently', 'opinions', 'minutes', 'already', 'greg', 'build', 'united', 'group'],
+['run', 'drugs', 'heart', 'jpl', 'false', 'end', 'outside', 'compatible', 'drives', 'mac', 'listen', 'cause', 'thinking', 'master', 'sexual', 'th', 'length', 'sample', 'os', 'internet'],
+['setting', 'interface', 'car', 'site', 'league', 'coming', 'style', 'att', 'encryption', 'few', 'effect', 'besides', 'wasn', 'brown', 'working', 'form','material', 'showed', 'popular', 'listen'],
+['europe', 'themselves', 'necessarily', 'close', 'white', 'committed', 'ab', 'subject', 'running', 'seattle', 'wants', 'caltech', 'tried', 'change', 'slightly', 'british', 'ron', 'compatible', 'report', 'illegal']
 ]
 
 
@@ -147,6 +167,7 @@ test_D.to(device)
 
 alpha = [0.1]*NUM_TOPICS
 text_d = []
+
 for ia in range(NUM_TOPICS):
     alpha[ia] = 100.1
     data = inf_data_gen(alpha)
@@ -173,6 +194,8 @@ for ia in range(NUM_TOPICS):
             myfile.write(doc_content)
     alpha[ia] = 0.1
 
+#print(test_result.todense().tolist())
+#text_data = util.tfidf2doc(test_result.todense(),vocab_text)
 id2word = corpora.Dictionary(text_d)
 corpus_newsgroups = [id2word.doc2bow(text) for text in text_d]
 cm_umass = CoherenceModel(topics=topics_20ng, corpus=corpus_newsgroups, dictionary=id2word, texts=text_d, coherence='u_mass')

@@ -144,10 +144,16 @@ def sample_document(tfidf_mat):
 def tfidf2doc(tfidf_vecs,vocab):
     # tfidf_docs_list = list(tfidf_vecs)
     docs = []
-    # print(tfidf_vecs)
+    #print(tfidf_vecs)
+    #for i in range(tfidf_vecs.shape[0]):
     for i in tfidf_vecs:
+        #print(i)
+        #print(tfidf_vecs[i,:].tolist()[0])
+       # t_list = [(x,y) for x,y in enumerate(tfidf_vecs[i,:].tolist()[0])]
         t_list = list(enumerate(i))
+        #print(t_list)
         t_list.sort(key = lambda x: x[1])
+       #  t_list.sort()
         t_list.reverse()
         doc = []
         # print(i)

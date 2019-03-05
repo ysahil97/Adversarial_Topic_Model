@@ -52,7 +52,7 @@ topics_20ng = [
 
 #Create the TF-IDF matrix
 def get_tfidf():
-    result = util.create_dataset(train_dataset)
+    result = util.create_dataset(train_dataset,"20newsgroups")
     return result
 
 def representation_map(result):
